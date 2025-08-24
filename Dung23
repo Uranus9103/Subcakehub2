@@ -1,0 +1,81 @@
+-- LocalScript: StarterPlayerScripts
+-- Freeze All Players Toggle (with button)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Tạo RemoteEvent nếu chưa có
+local freezeEvent = ReplicatedStorage:FindFirstChild("FreezeAll")
+if not freezeEvent then
+	freezeEvent = Instance.new("RemoteEvent")
+	freezeEvent.Name = "FreezeAll"
+	freezeEvent.Parent = ReplicatedStorage
+end
+
+----------------------------------------------------------------
+-- SERVER LOGIC (chạy qua OnServerEvent)
+----------------------------------------------------------------
+local isFrozen = false
+
+freezeEvent.OnServerEvent:Connect(function(plr)
+	-- Chỉ chủ bấm nút mới được phép điều khiển
+	if plr ~= player then return end
+
+	isFrozen = not isFrozen
+
+	for _, plr2 in pairs(Players:GetPlayers()) do
+		if plr2.Character and plr2.Character:FindFirstChildOfClass("Humanoid") then
+			local hum = plr2.Character:FindFirstChildOfClass("Humanoid")
+			if isFrozen then
+				hum.WalkSpeed = 0
+				hum.JumpPower = 0
+			else
+				hum.WalkSpeed = 16
+				hum.JumpPower = 50
+			end
+		end
+	end
+end)
+
+----------------------------------------------------------------
+-- CLIENT GUI
+----------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "FreezeGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local btn = Instance.new("TextButton")
+btn.Name = "FreezeButton"
+btn.Size = UDim2.new(0, 180, 0, 50)
+btn.Position = UDim2.new(0.7, 0, 0.8, 0)
+btn.Text = "Đóng băng: TẮT"
+btn.TextScaled = true
+btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.Parent = gui
+btn.Active = true
+btn.Draggable = true -- có thể kéo
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = btn
+
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Parent = btn
+
+-- Trạng thái nút
+local isOn = false
+local function updateBtn(on)
+	isOn = on
+	btn.Text = on and "Đóng băng: BẬT" or "Đóng băng: TẮT"
+	btn.BackgroundColor3 = on and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(200, 0, 0)
+end
+
+btn.MouseButton1Click:Connect(function()
+	updateBtn(not isOn)
+	freezeEvent:FireServer()
+end)
