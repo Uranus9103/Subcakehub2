@@ -1,0 +1,89 @@
+--// Freeze All Players Script
+-- Khi chạy sẽ tạo RemoteEvent + GUI + ServerScript tự động
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+local Players = game:GetService("Players")
+
+-- Tạo RemoteEvent nếu chưa có
+local event = ReplicatedStorage:FindFirstChild("FreezeEvent")
+if not event then
+	event = Instance.new("RemoteEvent")
+	event.Name = "FreezeEvent"
+	event.Parent = ReplicatedStorage
+end
+
+-- Tạo ServerScript xử lý freeze
+if not ServerScriptService:FindFirstChild("FreezeHandler") then
+	local serverScript = Instance.new("Script")
+	serverScript.Name = "FreezeHandler"
+	serverScript.Parent = ServerScriptService
+
+	serverScript.Source = [[
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		local Players = game:GetService("Players")
+
+		local freezeEvent = ReplicatedStorage:WaitForChild("FreezeEvent")
+		local frozen = false
+
+		freezeEvent.OnServerEvent:Connect(function(player)
+			frozen = not frozen  -- Đổi trạng thái
+
+			for _, plr in pairs(Players:GetPlayers()) do
+				if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+					if frozen then
+						plr.Character.Humanoid.WalkSpeed = 0
+						plr.Character.Humanoid.JumpPower = 0
+					else
+						plr.Character.Humanoid.WalkSpeed = 16
+						plr.Character.Humanoid.JumpPower = 50
+					end
+				end
+			end
+
+			-- Gửi trạng thái về client để đổi text nút
+			for _, plr in pairs(Players:GetPlayers()) do
+				game.ReplicatedStorage:WaitForChild("FreezeEvent"):FireClient(plr, frozen)
+			end
+		end)
+	]]
+end
+
+-- LocalScript tạo GUI cho người chơi
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		task.wait(1)
+		if player:FindFirstChild("PlayerGui") then
+			local gui = Instance.new("ScreenGui")
+			gui.Name = "FreezeGui"
+			gui.ResetOnSpawn = false
+			gui.Parent = player.PlayerGui
+
+			local button = Instance.new("TextButton")
+			button.Size = UDim2.new(0, 180, 0, 50)
+			button.Position = UDim2.new(0.5, -90, 0.9, -25)
+			button.Text = "Đóng băng tất cả"
+			button.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+			button.TextColor3 = Color3.fromRGB(255, 255, 255)
+			button.Font = Enum.Font.SourceSansBold
+			button.TextSize = 20
+			button.Parent = gui
+
+			-- Bấm gửi tín hiệu
+			button.MouseButton1Click:Connect(function()
+				ReplicatedStorage:WaitForChild("FreezeEvent"):FireServer()
+			end)
+
+			-- Nhận tín hiệu từ server để đổi text
+			ReplicatedStorage:WaitForChild("FreezeEvent").OnClientEvent:Connect(function(frozen)
+				if frozen then
+					button.Text = "Bỏ đóng băng"
+					button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+				else
+					button.Text = "Đóng băng tất cả"
+					button.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
+				end
+			end)
+		end
+	end)
+end)
