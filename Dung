@@ -1,0 +1,106 @@
+-- Freeze All In One Script
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+local StarterPlayerScripts = game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts")
+
+-- RemoteEvent
+local event = ReplicatedStorage:FindFirstChild("FreezeEvent")
+if not event then
+	event = Instance.new("RemoteEvent")
+	event.Name = "FreezeEvent"
+	event.Parent = ReplicatedStorage
+end
+
+-- ServerScript xử lý đóng băng
+if not ServerScriptService:FindFirstChild("FreezeServer") then
+	local serverScript = Instance.new("Script")
+	serverScript.Name = "FreezeServer"
+	serverScript.Source = [[
+		local Players = game:GetService("Players")
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		local event = ReplicatedStorage:WaitForChild("FreezeEvent")
+
+		local frozen = false
+
+		local function setFrozen(char, state)
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if not hum then return end
+			if state then
+				hum.WalkSpeed = 0
+				hum.JumpPower = 0
+			else
+				hum.WalkSpeed = 16
+				hum.JumpPower = 50
+			end
+		end
+
+		local function applyAll(state)
+			for _,plr in pairs(Players:GetPlayers()) do
+				if plr.Character then setFrozen(plr.Character, state) end
+			end
+		end
+
+		event.OnServerEvent:Connect(function(p)
+			frozen = not frozen
+			applyAll(frozen)
+			for _,plr in pairs(Players:GetPlayers()) do
+				event:FireClient(plr, frozen)
+			end
+		end)
+
+		Players.PlayerAdded:Connect(function(plr)
+			plr.CharacterAdded:Connect(function(c)
+				if frozen then
+					task.wait(0.2)
+					setFrozen(c, true)
+				end
+			end)
+		end)
+	]]
+	serverScript.Parent = ServerScriptService
+end
+
+-- LocalScript tạo GUI
+if not StarterPlayerScripts:FindFirstChild("FreezeClient") then
+	local clientScript = Instance.new("LocalScript")
+	clientScript.Name = "FreezeClient"
+	clientScript.Source = [[
+		local Players = game:GetService("Players")
+		local ReplicatedStorage = game:GetService("ReplicatedStorage")
+		local player = Players.LocalPlayer
+		local event = ReplicatedStorage:WaitForChild("FreezeEvent")
+
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "FreezeGui"
+		gui.ResetOnSpawn = false
+		gui.Parent = player:WaitForChild("PlayerGui")
+
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0,200,0,50)
+		btn.Position = UDim2.new(0.5,-100,0.9,-25)
+		btn.Text = "Đóng băng tất cả"
+		btn.BackgroundColor3 = Color3.fromRGB(50,50,200)
+		btn.TextColor3 = Color3.new(1,1,1)
+		btn.Font = Enum.Font.SourceSansBold
+		btn.TextSize = 20
+		btn.Parent = gui
+
+		btn.MouseButton1Click:Connect(function()
+			event:FireServer()
+		end)
+
+		event.OnClientEvent:Connect(function(frozen)
+			if frozen then
+				btn.Text = "Bỏ đóng băng"
+				btn.BackgroundColor3 = Color3.fromRGB(50,200,50) -- nền xanh lá cây
+				btn.TextColor3 = Color3.new(0,0,0) -- chữ đen
+			else
+				btn.Text = "Đóng băng tất cả"
+				btn.BackgroundColor3 = Color3.fromRGB(50,50,200) -- nền xanh dương
+				btn.TextColor3 = Color3.new(1,1,1) -- chữ trắng
+			end
+		end)
+	]]
+	clientScript.Parent = StarterPlayerScripts
+end
